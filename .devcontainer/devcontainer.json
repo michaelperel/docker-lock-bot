@@ -1,0 +1,19 @@
+// For format details, see https://aka.ms/vscode-remote/devcontainer.json or the definition README at
+// https://github.com/microsoft/vscode-dev-containers/tree/master/containers/docker-existing-dockerfile
+{
+	"name": "Dev Dockerfile",
+	"dockerFile": "Dockerfile",
+	// The optional 'runArgs' property can be used to specify additional runtime arguments.
+	"runArgs": [
+		// map host docker daemon into container for sibling containers
+		"-v",
+		"/var/run/docker.sock:/var/run/docker.sock",
+		"-p",
+		"3000:3000"
+	],
+	"settings": {
+		// General settings
+		"files.eol": "\n",
+		"terminal.integrated.shell.linux": "/bin/bash"
+    }
+}
