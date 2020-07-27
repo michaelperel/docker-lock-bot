@@ -33,7 +33,7 @@ function getOwner(context: any): string {
 }
 
 function getBranchName(): string {
-  return "add-docker-lock8"
+  return "add-docker-lock9"
 }
 
 async function createBranch(context: any, repo:string, owner: string, branchName: string, sha: string) {
@@ -126,11 +126,5 @@ export = (app: Application) => {
     }
 
     console.log("SCHEDULED EVENT OVER")
-  })
-
-  app.on('*', async context => {
-    console.log("THIS IS AN APP EVENT")
-    context.log({ event: context.event, action: context.payload.action })
-    console.log("THIS IS THE END")
   })
 }
