@@ -6,9 +6,8 @@ repo="${1}"
 owner="${2}"
 token="${3}"
 tmp_dir="${4}"
-default_branch="${5}"
-pr_branch="remotes/origin/${6}"
-lockfile="${7}"
+pr_branch="remotes/origin/${5}"
+lockfile="${6}"
 
 cd "./${tmp_dir}"
 

@@ -7,9 +7,11 @@ import createScheduler from 'probot-scheduler';
 import { Application, Context } from 'probot'
 
 const SCHEDULER_INTERVAL_MS = 30 * 1000 // 30 seconds
-const SCHEDULER_DELAY = false // ensures app runs immediately when added on Github
+const SCHEDULER_DELAY = true // when true, random delay between 0 and interval to avoid all schedules being performed at the same time
 
-async function getLatestSHA(context: Context, repo: string, owner: string, defaultBranchName: string): Promise<string> {
+const PR_BRANCH = "add-docker-lock-25" // name of branch created/updated on Github
+
+async function getLatestSHA(context: Context, repo: string, owner: string, defaultBranch: string): Promise<string> {
   const refs = await context.github.git.listRefs({
     owner: owner,
     repo: repo,
@@ -17,7 +19,7 @@ async function getLatestSHA(context: Context, repo: string, owner: string, defau
 
   let sha = ""
   for (const d of refs.data) {
-    if (d.ref == `refs/heads/${defaultBranchName}`) {
+    if (d.ref == `refs/heads/${defaultBranch}`) {
       sha = d.object.sha
     }
   }
@@ -47,9 +49,9 @@ function getOwner(context: Context): string {
   return owner
 }
 
-async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<string> {
+async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, prBranch: string, lockfile: string): Promise<string> {
   const exec = util.promisify(child.exec);
-  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`);
+  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${prBranch} ${lockfile}`);
   return stdout
 }
 
@@ -109,6 +111,15 @@ async function updateBranch(context: Context, repo: string, owner: string, prBra
   });
 }
 
+async function deleteBranch(context: Context, repo: string, owner: string, prBranch: string) {
+  const ref = `heads/${prBranch}`
+  await context.github.git.deleteRef({
+    owner: owner,
+    repo: repo,
+    ref: ref,
+  })
+}
+
 async function createPR(context: Context, repo: string, owner: string, defaultBranch: string, prBranch: string) {
   await context.github.pulls.create({
     owner: owner,
@@ -127,12 +138,17 @@ export = (app: Application) => {
     interval: SCHEDULER_INTERVAL_MS,
   })
 
+  app.on('pull_request.closed', async (context: Context) => {
+    const repo = getRepo(context)
+    const owner = getOwner(context)
+    await deleteBranch(context, repo, owner, PR_BRANCH)
+  })
+
   // https://github.com/probot/scheduler
   app.on('schedule.repository', async (context: Context) => {
     let tmpDir = ""
 
     try {
-      const prBranch = "add-docker-lock-17" // name of branch created/updated on Github
       const lockfile = "docker-lock.json"
       const token = await createToken(context, app)
       const repo = getRepo(context)
@@ -140,7 +156,7 @@ export = (app: Application) => {
       const defaultBranch = await getDefaultBranch(context, repo, owner)
 
       tmpDir = await createTemporaryDirectory()
-      const stdout = await dockerLock(repo, owner, token, tmpDir, defaultBranch, prBranch, lockfile)
+      const stdout = await dockerLock(repo, owner, token, tmpDir, PR_BRANCH, lockfile)
 
       if (stdout == "false") {
         return
@@ -149,28 +165,28 @@ export = (app: Application) => {
       const sha = await getLatestSHA(context, repo, owner, defaultBranch)
 
       try {
-        await createBranch(context, repo, owner, prBranch, sha)
+        await createBranch(context, repo, owner, PR_BRANCH, sha)
       }
       catch (e) {
         // branch already exists
-        console.log(repo, owner, e)
+        app.log(repo, owner, e)
       }
 
       let lockfileContents = await readLockfile(`./${tmpDir}/${lockfile}`)
       try {
-        await updateBranch(context, repo, owner, prBranch, lockfile, lockfileContents)
+        await updateBranch(context, repo, owner, PR_BRANCH, lockfile, lockfileContents)
       }
       catch (e) {
         // malformed data
-        console.log(repo, owner, e)
+        app.log(repo, owner, e)
       }
 
       try {
-        await createPR(context, repo, owner, defaultBranch, prBranch)
+        await createPR(context, repo, owner, defaultBranch, PR_BRANCH)
       }
       catch (e) {
         // PR already exists
-        console.log(repo, owner, e)
+        app.log(repo, owner, e)
       }
     }
 
