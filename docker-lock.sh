@@ -6,8 +6,9 @@ repo="${1}"
 owner="${2}"
 token="${3}"
 tmp_dir="${4}"
-pr_branch="remotes/origin/${5}"
-lockfile="${6}"
+default_branch="${5}"
+pr_branch="remotes/origin/${6}"
+lockfile="${7}"
 
 cd "./${tmp_dir}"
 
@@ -23,11 +24,17 @@ should_commit=""
 pr_branch_exists="$(git branch -a | tr -d " " | grep -e "^${pr_branch}$" || echo "")"
 
 if [[ "${pr_branch_exists}" != "" ]]; then
+    # pr branch exists
+
     # lockfile does not exist on PR branch -> "DOES NOT EXIST"
     # lockfile exists -> git diff's output (could be "")
     should_commit=$(git diff "${pr_branch}:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST")
 else
-    should_commit="true"
+    # pr branch does not exist
+
+    # lockfile does not exist on default branch -> "DOES NOT EXIST"
+    # lockfile exists -> git diff's output (could be "")
+    should_commit=$(git diff "${default_branch}:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST")
 fi
 
 mv "${lockfile}" ../

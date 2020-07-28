@@ -9,7 +9,7 @@ import { Application, Context } from 'probot'
 const SCHEDULER_INTERVAL_MS = 30 * 1000 // 30 seconds
 const SCHEDULER_DELAY = true // when true, random delay between 0 and interval to avoid all schedules being performed at the same time
 
-const PR_BRANCH = "add-docker-lock-25" // name of branch created/updated on Github
+const PR_BRANCH = "add-docker-lock" // name of branch created/updated on Github
 
 async function getLatestSHA(context: Context, repo: string, owner: string, defaultBranch: string): Promise<string> {
   const refs = await context.github.git.listRefs({
@@ -49,9 +49,9 @@ function getOwner(context: Context): string {
   return owner
 }
 
-async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, prBranch: string, lockfile: string): Promise<string> {
+async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<string> {
   const exec = util.promisify(child.exec);
-  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${prBranch} ${lockfile}`);
+  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`);
   return stdout
 }
 
@@ -156,7 +156,7 @@ export = (app: Application) => {
       const defaultBranch = await getDefaultBranch(context, repo, owner)
 
       tmpDir = await createTemporaryDirectory()
-      const stdout = await dockerLock(repo, owner, token, tmpDir, PR_BRANCH, lockfile)
+      const stdout = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
 
       if (stdout == "false") {
         return
@@ -179,6 +179,7 @@ export = (app: Application) => {
       catch (e) {
         // malformed data
         app.log(repo, owner, e)
+        return
       }
 
       try {
