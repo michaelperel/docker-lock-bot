@@ -16,12 +16,13 @@ cd "${repo}"
 lockfile="docker-lock.json"
 
 docker lock generate
-mv "${lockfile}" ../
 
 # if docker-lock.json does not exist, diffs will contain "DOES NOT EXIST"
 # if docker-lock.json exists, will contain diffs (if there are no diffs, will contain "")
 # TODO: default branch instead of master
 diffs=$(git diff "master:${lockfile}" "${lockfile}" 2>/dev/null || echo "DOES NOT EXIST")
+
+mv "${lockfile}" ../
 
 if [[ "${diffs}" != "" ]]; then
     echo "true"
