@@ -1,6 +1,9 @@
 import { Application, Context } from 'probot'
 
 const createScheduler = require('probot-scheduler')
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
+const fs = require('fs')
 
 async function getLatestSHA(context: Context, repo: string, owner: string, defaultBranchName: string): Promise<string> {
   const refs = await context.github.git.listRefs({
@@ -39,6 +42,22 @@ function getOwner(context: Context): string {
   return owner
 }
 
+async function executeDockerLock(repo: string, owner: string, token: string, tmpDir: string): Promise<string> {
+  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir}`);
+  return stdout
+}
+
+function createTemporaryDirectory(): string {
+  // TODO: try catch
+  let tmp = fs.mkdtempSync('tmp-')
+  return tmp
+}
+
+function removeTemporaryDirectory(dir: string) {
+  // TODO: try catch
+  fs.rmdirSync(dir, { recursive: true });
+}
+
 function getBranchName(): string {
   return "add-docker-lock9"
 }
@@ -53,7 +72,7 @@ async function createBranch(context: Context, repo:string, owner: string, branch
   });
 }
 
-async function updateBranch(context: Context, repo: string, owner: string, branchName: string) {
+async function updateBranch(context: Context, repo: string, owner: string, branchName: string, tmpDir: string) {
     const contents = await context.github.repos.getContents({
       owner: owner,
       repo: repo,
@@ -71,6 +90,10 @@ async function updateBranch(context: Context, repo: string, owner: string, branc
         sha = d.sha
       }
     }
+
+    let rawData = fs.readFileSync(`./${tmpDir}/docker-lock.json`)
+    const fileContents = new Buffer(rawData).toString('base64')
+    console.log("FILE CONTENTS:", fileContents)
   
     await context.github.repos.createOrUpdateFile({
       owner: owner,
@@ -79,9 +102,7 @@ async function updateBranch(context: Context, repo: string, owner: string, branc
       branch: branchName,
       message: 'updating docker-lock.json',
       sha,
-      // Note, that content goes in the base64 encoding which is an update for upstream in GitHub API
-      // content: Buffer.from(JSON.stringify(updatePackageJSONObject, null, 2)).toString('base64'),
-      content: Buffer.from('hello').toString('base64')
+      content: fileContents,
     });
 }
 
@@ -113,6 +134,12 @@ export = (app: Application) => {
   
     const repo = getRepo(context)
     const owner = getOwner(context)
+
+    const tmpDir = createTemporaryDirectory()
+    console.log(tmpDir)
+    const stdout = await executeDockerLock(repo, owner, token, tmpDir)
+    console.log(stdout)
+
     const defaultBranch = await getDefaultBranch(context, repo, owner)
 
     console.log(repo, owner, defaultBranch)
@@ -132,7 +159,7 @@ export = (app: Application) => {
     console.log("CREATE BRANCH FINISHED")
 
     try {
-      await updateBranch(context, repo, owner, branchName)
+      await updateBranch(context, repo, owner, branchName, tmpDir)
     }
     catch(e) {
       console.log(e)
@@ -146,6 +173,8 @@ export = (app: Application) => {
       console.log(e)
     }
 
+    removeTemporaryDirectory(tmpDir)
+    console.log("REMOVED DIRECTORY")
     console.log("SCHEDULED EVENT OVER")
   })
 }
