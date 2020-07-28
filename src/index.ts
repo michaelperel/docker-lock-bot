@@ -55,11 +55,12 @@ function createTemporaryDirectory(): string {
 
 function removeTemporaryDirectory(dir: string) {
   // TODO: try catch
+  // TODO: no need for this to be sync
   fs.rmdirSync(dir, { recursive: true });
 }
 
 function getBranchName(): string {
-  return "add-docker-lock9"
+  return "add-docker-lock10"
 }
 
 async function createBranch(context: Context, repo:string, owner: string, branchName: string, sha: string) {
@@ -136,45 +137,49 @@ export = (app: Application) => {
     const owner = getOwner(context)
 
     const tmpDir = createTemporaryDirectory()
-    console.log(tmpDir)
-    const stdout = await executeDockerLock(repo, owner, token, tmpDir)
-    console.log(stdout)
-
-    const defaultBranch = await getDefaultBranch(context, repo, owner)
-
-    console.log(repo, owner, defaultBranch)
-
-    const branchName = getBranchName()
-    console.log("PR BRANCHNAME:", branchName)
-
-    const sha = await getLatestSHA(context, repo, owner, defaultBranch)
-    console.log("SHA:", sha)
 
     try {
-      await createBranch(context, repo, owner, branchName, sha)
-    }
-    catch (e) {
-      console.log(e)
-    }
-    console.log("CREATE BRANCH FINISHED")
+      console.log(tmpDir)
+      const stdout = await executeDockerLock(repo, owner, token, tmpDir)
+      console.log(stdout)
 
-    try {
-      await updateBranch(context, repo, owner, branchName, tmpDir)
-    }
-    catch(e) {
-      console.log(e)
-    }
-    console.log("UPDATE BRANCH FINISHED")
-  
-    try {
-      await createPR(context, repo, owner, branchName)
-    }
-    catch(e) {
-      console.log(e)
-    }
+      const defaultBranch = await getDefaultBranch(context, repo, owner)
 
-    removeTemporaryDirectory(tmpDir)
-    console.log("REMOVED DIRECTORY")
-    console.log("SCHEDULED EVENT OVER")
+      console.log(repo, owner, defaultBranch)
+
+      const branchName = getBranchName()
+      console.log("PR BRANCHNAME:", branchName)
+
+      const sha = await getLatestSHA(context, repo, owner, defaultBranch)
+      console.log("SHA:", sha)
+
+      try {
+        await createBranch(context, repo, owner, branchName, sha)
+      }
+      catch (e) {
+        console.log(e)
+      }
+      console.log("CREATE BRANCH FINISHED")
+
+      try {
+        await updateBranch(context, repo, owner, branchName, tmpDir)
+      }
+      catch(e) {
+        console.log(e)
+      }
+      console.log("UPDATE BRANCH FINISHED")
+    
+      try {
+        await createPR(context, repo, owner, branchName)
+      }
+      catch(e) {
+        console.log(e)
+      }
+    }
+    finally {
+      removeTemporaryDirectory(tmpDir)
+      console.log("REMOVED DIRECTORY")
+      console.log("SCHEDULED EVENT OVER")
+    }
   })
 }
