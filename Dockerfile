@@ -23,4 +23,5 @@ RUN npm install --only=production && \
     chmod +x "${HOME}/.docker/cli-plugins/docker-lock"
 COPY --from=builder /app/lib/ lib/
 COPY ./docker-lock.sh ./
+EXPOSE 3000
 CMD [ "npm", "run", "start" ]
