@@ -6,7 +6,7 @@ import * as child from 'child_process'
 import createScheduler from 'probot-scheduler'
 import { Application, Context } from 'probot'
 
-const SCHEDULER_INTERVAL_MS: number = +(process.env.SCHEDULER_INTERVAL_MS || 5 * 60 * 1000 ) // default to 5 minutes
+const SCHEDULER_INTERVAL_MS: number = +(process.env.SCHEDULER_INTERVAL_MS || 5 * 60 * 1000) // default to 5 minutes
 
 const SCHEDULER_DELAY = true // when true, random delay between 0 and interval to avoid all schedules being performed at the same time
 
@@ -50,10 +50,10 @@ function getOwner(context: Context): string {
   return owner
 }
 
-async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<string> {
+async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<{ stdout: string, stderr: string }> {
   const exec = util.promisify(child.exec)
-  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
-  return stdout
+  const { stdout, stderr } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
+  return { stdout, stderr }
 }
 
 async function createTemporaryDirectory(): Promise<string> {
@@ -157,10 +157,16 @@ export = (app: Application) => {
       const defaultBranch = await getDefaultBranch(context, repo, owner)
 
       tmpDir = await createTemporaryDirectory()
-      const stdout = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
+      const { stdout, stderr } = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
 
       if (stdout != "true") {
         return
+      }
+
+      //@ts-ignore TS2367
+      if (stdout != "true" || stdout != "false") {
+        // log any condition except for the expected "true" or "false"
+        app.log(repo, owner, stderr)
       }
 
       const sha = await getLatestSHA(context, repo, owner, defaultBranch)

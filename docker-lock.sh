@@ -43,3 +43,4 @@ if [[ "${should_commit}" != "" ]]; then
     printf "true"
     exit 0
 fi
+printf "false"
