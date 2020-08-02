@@ -5,9 +5,9 @@
   "description": "A Probot app",
   "author": "Michael Perel <michaelsethperel@gmail.com>",
   "license": "ISC",
-  "repository": "https://github.com/michaelperel/docker-lock-bot.git",
-  "homepage": "https://github.com/michaelperel/docker-lock-bot",
-  "bugs": "https://github.com/michaelperel/docker-lock-bot/issues",
+  "repository": "https://github.com/safe-waters/docker-lock-bot.git",
+  "homepage": "https://github.com/safe-waters/docker-lock-bot",
+  "bugs": "https://github.com/safe-waters/docker-lock-bot/issues",
   "keywords": [
     "probot",
     "github",
