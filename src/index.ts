@@ -1,12 +1,13 @@
-import util from 'util';
-import fs from 'fs';
-import * as child from 'child_process';
+import util from 'util'
+import fs from 'fs'
+import * as child from 'child_process'
 
 // @ts-ignore
-import createScheduler from 'probot-scheduler';
+import createScheduler from 'probot-scheduler'
 import { Application, Context } from 'probot'
 
-const SCHEDULER_INTERVAL_MS = 30 * 1000 // 30 seconds
+const SCHEDULER_INTERVAL_MS: number = +(process.env.SCHEDULER_INTERVAL_MS || 5 * 60 * 1000 ) // default to 5 minutes
+
 const SCHEDULER_DELAY = true // when true, random delay between 0 and interval to avoid all schedules being performed at the same time
 
 const PR_BRANCH = "add-docker-lock" // name of branch created/updated on Github
@@ -35,7 +36,7 @@ async function createToken(context: Context, app: Application): Promise<string> 
 }
 
 async function getDefaultBranch(context: Context, repo: string, owner: string): Promise<string> {
-  const { default_branch } = (await context.github.repos.get({ owner, repo })).data;
+  const { default_branch } = (await context.github.repos.get({ owner, repo })).data
   return default_branch
 }
 
@@ -50,8 +51,8 @@ function getOwner(context: Context): string {
 }
 
 async function dockerLock(repo: string, owner: string, token: string, tmpDir: string, defaultBranch: string, prBranch: string, lockfile: string): Promise<string> {
-  const exec = util.promisify(child.exec);
-  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`);
+  const exec = util.promisify(child.exec)
+  const { stdout } = await exec(`bash ./docker-lock.sh ${repo} ${owner} ${token} ${tmpDir} ${defaultBranch} ${prBranch} ${lockfile}`)
   return stdout
 }
 
@@ -78,7 +79,7 @@ async function createBranch(context: Context, repo: string, owner: string, prBra
     repo: repo,
     ref: ref,
     sha: sha,
-  });
+  })
 }
 
 async function updateBranch(context: Context, repo: string, owner: string, prBranch: string, lockfile: string, lockfileContents: string) {
@@ -87,7 +88,7 @@ async function updateBranch(context: Context, repo: string, owner: string, prBra
     repo: repo,
     ref: prBranch,
     path: '.'
-  });
+  })
 
   if (!Array.isArray(contents.data)) {
     throw new Error(`unexpected contents.data ${contents.data}`)
@@ -108,7 +109,7 @@ async function updateBranch(context: Context, repo: string, owner: string, prBra
     message: "Updated lockfile.",
     sha: sha,
     content: lockfileContents,
-  });
+  })
 }
 
 async function deleteBranch(context: Context, repo: string, owner: string, prBranch: string) {
@@ -129,7 +130,7 @@ async function createPR(context: Context, repo: string, owner: string, defaultBr
     head: prBranch,
     base: defaultBranch,
     maintainer_can_modify: true,
-  });
+  })
 }
 
 export = (app: Application) => {
@@ -158,7 +159,7 @@ export = (app: Application) => {
       tmpDir = await createTemporaryDirectory()
       const stdout = await dockerLock(repo, owner, token, tmpDir, defaultBranch, PR_BRANCH, lockfile)
 
-      if (stdout == "false") {
+      if (stdout != "true") {
         return
       }
 
